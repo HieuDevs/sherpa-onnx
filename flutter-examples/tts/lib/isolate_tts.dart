@@ -92,13 +92,14 @@ class IsolateTts {
     String dataDir = '';
     String dictDir = '';
 
-    // Example 7
+    // Example 1
     // https://github.com/k2-fsa/sherpa-onnx/releases/tag/tts-models
-    // https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-melo-tts-zh_en.tar.bz2
-    modelDir = 'vits-melo-tts-zh_en';
-    modelName = 'model.onnx';
-    lexicon = 'lexicon.txt';
-    dictDir = 'vits-melo-tts-zh_en/dict';
+    // https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-libritts_r-medium.tar.bz2
+    modelDir = 'vits-piper-en_US-libritts_r-medium';
+    modelName = 'en_US-libritts_r-medium.onnx';
+    lexicon = '';
+    dictDir = '';
+    dataDir = 'vits-piper-en_US-libritts_r-medium/espeak-ng-data';
 
     if (modelName == '') {
       throw Exception('You are supposed to select a model by changing the code before you run the app');
@@ -236,7 +237,7 @@ class _IsolateTtsViewState extends State<IsolateTtsView> {
       body: Center(
         child: ElevatedButton(
           onPressed: () {
-            IsolateTts.generate(text: '这是已退出的 isolate TTS');
+            IsolateTts.generate(text: 'Hello, world!');
           },
           child: Text('Isolate TTS'),
         ),

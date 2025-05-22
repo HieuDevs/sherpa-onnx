@@ -1,10 +1,22 @@
 // Copyright (c)  2024  Xiaomi Corporation
 import 'dart:io';
-import 'dart:typed_data';
 
-import 'package:flutter/services.dart';
+import 'package:archive/archive.dart';
+import 'package:archive/archive_io.dart';
+import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+
+enum DownloadStage {
+  downloading,
+  downloadComplete,
+  archiveFound,
+  decompressing,
+  extracting,
+  writingFiles,
+  extractionComplete,
+  error,
+}
 
 Future<String> generateWaveFilename([String suffix = '']) async {
   final Directory directory = await getApplicationDocumentsDirectory();
@@ -15,42 +27,75 @@ Future<String> generateWaveFilename([String suffix = '']) async {
   return p.join(directory.path, filename);
 }
 
-// https://stackoverflow.com/questions/68862225/flutter-how-to-get-all-files-from-assets-folder-in-one-list
-Future<List<String>> getAllAssetFiles() async {
-  final AssetManifest assetManifest =
-      await AssetManifest.loadFromAssetBundle(rootBundle);
-  final List<String> assets = assetManifest.listAssets();
-  return assets;
-}
-
-String stripLeadingDirectory(String src, {int n = 1}) {
-  return p.joinAll(p.split(src).sublist(n));
-}
-
-Future<void> copyAllAssetFiles() async {
-  final allFiles = await getAllAssetFiles();
-  for (final src in allFiles) {
-    final dst = stripLeadingDirectory(src);
-    await copyAssetFile(src, dst);
-  }
-}
-
-// Copy the asset file from src to dst.
-// If dst already exists, then just skip the copy
-Future<String> copyAssetFile(String src, [String? dst]) async {
+Future<bool> isTTSSherpaModelAvailable(String modelDir) async {
   final Directory directory = await getApplicationDocumentsDirectory();
-  if (dst == null) {
-    dst = p.basename(src);
-  }
-  final target = p.join(directory.path, dst);
-  bool exists = await new File(target).exists();
+  final Directory modelDirectory = Directory(p.join(directory.path, modelDir));
+  return await modelDirectory.exists();
+}
 
-  final data = await rootBundle.load(src);
-  if (!exists || File(target).lengthSync() != data.lengthInBytes) {
-    final List<int> bytes =
-        data.buffer.asUint8List(data.offsetInBytes, data.lengthInBytes);
-    await (await File(target).create(recursive: true)).writeAsBytes(bytes);
-  }
+Future<bool> downloadAndExtractBzTar({
+  required String url,
+  required void Function(double progress, DownloadStage stage) onProgress,
+}) async {
+  try {
+    final Directory directory = await getApplicationDocumentsDirectory();
+    final String archiveName = url.split('/').last;
+    final String archivePath = p.join(directory.path, archiveName);
 
-  return target;
+    final File archiveFile = File(archivePath);
+    if (!await archiveFile.exists()) {
+      // Download
+      final request = http.Request('GET', Uri.parse(url));
+      final response = await request.send();
+      if (response.statusCode != 200) {
+        onProgress(0, DownloadStage.error);
+        return false;
+      }
+      final contentLength = response.contentLength ?? 0;
+      int received = 0;
+      final file = archiveFile.openWrite();
+      await response.stream.listen((chunk) {
+        received += chunk.length;
+        file.add(chunk);
+        if (contentLength > 0) {
+          onProgress(received / contentLength, DownloadStage.downloading);
+        }
+      }).asFuture();
+      await file.close();
+      onProgress(1.0, DownloadStage.downloadComplete);
+    } else {
+      onProgress(1.0, DownloadStage.archiveFound);
+    }
+
+    // Read the .tar.bz2 file
+    final bytes = await archiveFile.readAsBytes();
+    onProgress(0.05, DownloadStage.decompressing);
+    final tarData = BZip2Decoder().decodeBytes(bytes);
+    onProgress(0.25, DownloadStage.extracting);
+    final archive = TarDecoder().decodeBytes(tarData);
+
+    int totalFiles = archive.files.length;
+    int extracted = 0;
+    for (final file in archive.files) {
+      final filename = file.name;
+      final outPath = p.join(directory.path, filename);
+      if (file.isFile) {
+        await File(outPath)
+          ..createSync(recursive: true)
+          ..writeAsBytesSync(file.content as List<int>);
+      } else {
+        await Directory(outPath).create(recursive: true);
+      }
+      extracted++;
+      onProgress(0.85 + 0.15 * (extracted / totalFiles), DownloadStage.writingFiles);
+    }
+    onProgress(1.0, DownloadStage.extractionComplete);
+
+    // Remove archive
+    await archiveFile.delete();
+    return true;
+  } catch (e) {
+    onProgress(0, DownloadStage.error);
+    return false;
+  }
 }

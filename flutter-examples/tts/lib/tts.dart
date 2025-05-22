@@ -1,12 +1,9 @@
 // Copyright (c)  2024  Xiaomi Corporation
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
-
-import 'package:flutter/material.dart';
-
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa_onnx;
 
 import './model.dart';
@@ -47,6 +44,22 @@ class _TtsScreenState extends State<TtsScreen> {
 
       _tts?.free();
       _tts = await createOfflineTts();
+
+      if (_tts == null) {
+        setState(() {
+          _controller_hint.value = TextEditingValue(
+            text: 'TTS model not found. Please download and extract the model as per the README instructions.',
+          );
+        });
+        downloadAndExtractBzTar(
+          url:
+              "https://github.com/k2-fsa/sherpa-onnx/releases/download/tts-models/vits-piper-en_US-libritts_r-medium.tar.bz2",
+          onProgress: (progress, stage) {
+            print('progress: $progress, stage: $stage');
+          },
+        );
+        return;
+      }
 
       _player = AudioPlayer();
 
@@ -111,10 +124,11 @@ class _TtsScreenState extends State<TtsScreen> {
                   child: Text("Generate"),
                   onPressed: () async {
                     await _init();
-                    await _player?.stop();
+                    await _player.stop();
 
                     setState(() {
                       _maxSpeakerID = _tts?.numSpeakers ?? 0;
+                      print('maxSpeakerID: $_maxSpeakerID');
                       if (_maxSpeakerID > 0) {
                         _maxSpeakerID -= 1;
                       }
@@ -168,7 +182,7 @@ class _TtsScreenState extends State<TtsScreen> {
                       );
                       _lastFilename = filename;
 
-                      await _player?.play(DeviceFileSource(_lastFilename));
+                      await _player.play(DeviceFileSource(_lastFilename));
                     } else {
                       _controller_hint.value = TextEditingValue(
                         text: 'Failed to save generated audio',
@@ -199,8 +213,8 @@ class _TtsScreenState extends State<TtsScreen> {
                       );
                       return;
                     }
-                    await _player?.stop();
-                    await _player?.play(DeviceFileSource(_lastFilename));
+                    await _player.stop();
+                    await _player.play(DeviceFileSource(_lastFilename));
                     _controller_hint.value = TextEditingValue(
                       text: 'Playing\n$_lastFilename',
                     );
@@ -210,7 +224,7 @@ class _TtsScreenState extends State<TtsScreen> {
                 OutlinedButton(
                   child: Text("Stop"),
                   onPressed: () async {
-                    await _player?.stop();
+                    await _player.stop();
                     _controller_hint.value = TextEditingValue(
                       text: '',
                     );

@@ -3,7 +3,7 @@ description: >
   This example shows how to implement text to speech, i.e., speech synthesis,
   using sherpa-onnx.
 
-publish_to: 'none' # Remove this line if you wish to publish to pub.dev
+publish_to: "none" # Remove this line if you wish to publish to pub.dev
 
 version: 1.12.0
 
@@ -21,15 +21,12 @@ dependencies:
   sherpa_onnx: ^1.12.0
   # sherpa_onnx:
   #   path: ../../flutter/sherpa_onnx
-  url_launcher: 6.2.6
-  url_launcher_linux: 3.1.0
+  # url_launcher: 6.2.6
+  # url_launcher_linux: 3.1.0
   audioplayers: ^5.0.0
-  media_kit: 
-  media_kit_libs_video: 
+  media_kit:
+  # media_kit_libs_video:
+  archive: ^3.4.6
 
 flutter:
   uses-material-design: true
-
-  assets:
-    - assets/vits-melo-tts-zh_en/
-    - assets/vits-melo-tts-zh_en/dict/

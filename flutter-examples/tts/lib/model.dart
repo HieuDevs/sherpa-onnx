@@ -2,17 +2,23 @@
 
 import "dart:io";
 
-import 'package:flutter/services.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa_onnx;
 
 import './utils.dart';
 
-Future<sherpa_onnx.OfflineTts> createOfflineTts() async {
+Future<sherpa_onnx.OfflineTts?> createOfflineTts() async {
   // sherpa_onnx requires that model files are in the local disk, so we
   // need to copy all asset files to disk.
-  await copyAllAssetFiles();
+
+  String modelDir = 'vits-piper-en_US-libritts_r-medium';
+
+  // Check if model is downloaded
+  bool hasModel = await isTTSSherpaModelAvailable(modelDir);
+  if (!hasModel) {
+    return null;
+  }
 
   sherpa_onnx.initBindings();
 
@@ -22,13 +28,12 @@ Future<sherpa_onnx.OfflineTts> createOfflineTts() async {
   // See https://github.com/k2-fsa/sherpa-onnx/blob/master/scripts/flutter/generate-tts.py
   // for details
 
-  String modelDir = '';
-  String modelName = '';
+  String modelName = 'en_US-libritts_r-medium.onnx';
   String voices = ''; // for Kokoro only
   String ruleFsts = '';
   String ruleFars = '';
   String lexicon = '';
-  String dataDir = '';
+  String dataDir = 'vits-piper-en_US-libritts_r-medium/espeak-ng-data';
   String dictDir = '';
 
   // You can select an example below and change it accordingly to match your
@@ -105,8 +110,7 @@ Future<sherpa_onnx.OfflineTts> createOfflineTts() async {
   // Please don't change the remaining part of this function
   // ============================================================
   if (modelName == '') {
-    throw Exception(
-        'You are supposed to select a model by changing the code before you run the app');
+    throw Exception('You are supposed to select a model by changing the code before you run the app');
   }
 
   final Directory directory = await getApplicationDocumentsDirectory();
